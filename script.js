@@ -128,12 +128,21 @@ function updatePlayingUI(playing) {
 }
 
 function playMusic() {
-  audio.play().then(() => {
-    updatePlayingUI(true);
-  }).catch(() => {
-    statusText.textContent = "Tap Play";
-    updatePlayingUI(false);
-  });
+  if (!audio.src) {
+    audio.src = cds[currentIndex].file;
+  }
+
+  audio.load();
+
+  audio.play()
+    .then(() => {
+      updatePlayingUI(true);
+    })
+    .catch((error) => {
+      console.error("Audio failed to play:", error);
+      statusText.textContent = "Tap Play";
+      updatePlayingUI(false);
+    });
 }
 
 function pauseMusic() {
