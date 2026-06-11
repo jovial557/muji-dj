@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MUJI CD Music Prototype</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-stage">
+    <main class="phone" aria-label="MUJI mobile prototype">
+      <img class="home-bg" src="assets/muji-home-bg.png" alt="MUJI home page background" />
+
+      <button class="mini-player" id="miniPlayer" aria-label="Open music player">
+        <div class="mini-cd-slot" aria-hidden="true">
+          <div class="mini-cd-disc" id="miniCd">
+            <div class="mini-cd-surface"></div>
+          </div>
+        </div>
+        <div class="mini-wave-wrap">
+          <div class="wave mini" id="miniWave" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </button>
+
+      <section class="overlay" id="overlay" aria-label="Expanded music player" aria-hidden="true">
+        <p class="hint">Slide CD to change music</p>
+
+        <div class="carousel" id="carousel">
+          <div class="carousel-track" id="carouselTrack">
+            <div class="cd" id="cdPrev" aria-hidden="true">
+              <div class="cd-surface"></div>
+            </div>
+            <div class="cd active" id="activeCd" aria-hidden="true">
+              <div class="cd-surface"></div>
+            </div>
+            <div class="cd" id="cdNext" aria-hidden="true">
+              <div class="cd-surface"></div>
+            </div>
+          </div>
+        </div>
+
+        <article class="player-card" id="playerCard">
+          <div class="wave large" id="wave" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+
+          <p class="status" id="statusText">Paused</p>
+          <h1 class="track-title" id="trackTitle">MUJI FRANCE</h1>
+
+          <div class="controls">
+            <button class="skip" id="prevBtn" aria-label="Previous CD">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="19 20 9 12 19 4 19 20" />
+                <line x1="5" y1="19" x2="5" y2="5" />
+              </svg>
+            </button>
+            <button class="play" id="playPauseBtn" aria-label="Play or pause">
+              <svg class="icon-play" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M11 8l14 8-14 8z" fill="currentColor" />
+              </svg>
+              <svg class="icon-pause" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="10" y="8" width="4.5" height="16" rx="1" fill="currentColor" />
+                <rect x="17.5" y="8" width="4.5" height="16" rx="1" fill="currentColor" />
+              </svg>
+            </button>
+            <button class="skip" id="nextBtn" aria-label="Next CD">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <g transform="translate(24 0) scale(-1 1)">
+                  <polygon points="19 20 9 12 19 4 19 20" />
+                  <line x1="5" y1="19" x2="5" y2="5" />
+                </g>
+              </svg>
+            </button>
+          </div>
+        </article>
+
+        <button class="close" id="closeBtn" aria-label="Close player">Close</button>
+      </section>
+
+      <audio id="audio"></audio>
+    </main>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
