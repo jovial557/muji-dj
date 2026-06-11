@@ -15,10 +15,6 @@ const miniPlayer = document.getElementById("miniPlayer");
 const overlay = document.getElementById("overlay");
 const closeBtn = document.getElementById("closeBtn");
 const carouselTrack = document.getElementById("carouselTrack");
-const cdPrev = document.getElementById("cdPrev");
-const activeCd = document.getElementById("activeCd");
-const cdNext = document.getElementById("cdNext");
-const cdElements = [cdPrev, activeCd, cdNext];
 const miniCd = document.getElementById("miniCd");
 const trackTitle = document.getElementById("trackTitle");
 const statusText = document.getElementById("statusText");
@@ -29,6 +25,14 @@ const audio = document.getElementById("audio");
 const wave = document.getElementById("wave");
 const miniWave = document.getElementById("miniWave");
 
+// Three physical CD elements. Their roles rotate after each swipe.
+// cdSlots[0] = left/prev, cdSlots[1] = center/active, cdSlots[2] = right/next
+let cdSlots = [
+  document.getElementById("cdPrev"),
+  document.getElementById("activeCd"),
+  document.getElementById("cdNext"),
+];
+
 let currentIndex = 0;
 let isPlaying = false;
 let dragStartX = 0;
@@ -37,58 +41,70 @@ let animating = false;
 let offsetX = 0;
 
 const CD_SPIN_SECONDS = 5;
-let cdRotation = 0;
-let spinOrigin = performance.now();
+// Each track keeps its own rotation angle
+const trackRotations = cds.map(() => 0);
+const trackSpinOrigins = cds.map(() => performance.now());
 
-function getActiveCdSurface() {
-  return activeCd.querySelector(".cd-surface");
+function wrapIndex(index) {
+  return (index + cds.length) % cds.length;
+}
+
+function getCenterCd() {
+  return cdSlots[1];
 }
 
 function getMiniCdSurface() {
   return miniCd.querySelector(".mini-cd-surface");
 }
 
-function getCdRotationAngle() {
-  return ((performance.now() - spinOrigin) / 1000 / CD_SPIN_SECONDS) * 360;
+function trackIndexForSlot(slotIndex) {
+  if (slotIndex === 0) return wrapIndex(currentIndex - 1);
+  if (slotIndex === 1) return currentIndex;
+  return wrapIndex(currentIndex + 1);
 }
 
-function syncSpinOrigin(angle = cdRotation) {
-  spinOrigin = performance.now() - (angle / 360) * CD_SPIN_SECONDS * 1000;
+function getTrackRotationAngle(trackIndex) {
+  if (!isPlaying) return trackRotations[trackIndex];
+  const origin = trackSpinOrigins[trackIndex];
+  return ((performance.now() - origin) / 1000 / CD_SPIN_SECONDS) * 360;
 }
 
-function applyCdRotation(angle = cdRotation) {
-  const transform = `rotate(${angle}deg) translateZ(0)`;
-  const activeSurface = getActiveCdSurface();
+function syncTrackSpinOrigin(trackIndex, angle = trackRotations[trackIndex]) {
+  trackSpinOrigins[trackIndex] =
+    performance.now() - (angle / 360) * CD_SPIN_SECONDS * 1000;
+}
+
+function applyCdRotation() {
+  const centerSurface = getCenterCd().querySelector(".cd-surface");
+  if (centerSurface) {
+    const angle = getTrackRotationAngle(currentIndex);
+    trackRotations[currentIndex] = angle;
+    centerSurface.style.transform = `rotate(${angle}deg) translateZ(0)`;
+  }
+
+  // Side CDs stay still — only the active one spins
+  [cdSlots[0], cdSlots[2]].forEach((cd) => {
+    const surface = cd.querySelector(".cd-surface");
+    if (surface) surface.style.transform = "rotate(0deg) translateZ(0)";
+  });
+
   const miniSurface = getMiniCdSurface();
-  if (activeSurface) activeSurface.style.transform = transform;
-  if (miniSurface) miniSurface.style.transform = transform;
+  if (miniSurface) {
+    const angle = getTrackRotationAngle(currentIndex);
+    miniSurface.style.transform = `rotate(${angle}deg) translateZ(0)`;
+  }
 }
 
 function cdRotationLoop() {
   if (isPlaying && !dragging) {
-    cdRotation = getCdRotationAngle();
     applyCdRotation();
   }
   requestAnimationFrame(cdRotationLoop);
 }
 
-function wrapIndex(index) {
-  return (index + cds.length) % cds.length;
-}
-
-function applyCdArtwork() {
-  const prevIdx = wrapIndex(currentIndex - 1);
-  const nextIdx = wrapIndex(currentIndex + 1);
-
-  cdPrev.style.setProperty("--cd-bg", cds[prevIdx].bg);
-  activeCd.style.setProperty("--cd-bg", cds[currentIndex].bg);
-  cdNext.style.setProperty("--cd-bg", cds[nextIdx].bg);
-  miniCd.style.setProperty("--cd-bg", cds[currentIndex].bg);
-}
-
 function setCdTransition(animate) {
   const value = animate ? `transform ${TRANSITION_MS}ms ${TRANSITION_EASE}` : "none";
-  cdElements.forEach((cd) => {
+  cdSlots.forEach((cd) => {
     cd.style.transition = value;
   });
 }
@@ -96,9 +112,23 @@ function setCdTransition(animate) {
 function setCdPositions(dragOffset = 0, animate = false) {
   setCdTransition(animate);
   const positions = [-SLIDE_DISTANCE, 0, SLIDE_DISTANCE];
-  cdElements.forEach((cd, index) => {
-    cd.style.transform = `translateX(${positions[index] + dragOffset}px)`;
+  cdSlots.forEach((cd, slotIndex) => {
+    cd.style.transform = `translateX(${positions[slotIndex] + dragOffset}px)`;
   });
+}
+
+function applySideArtwork() {
+  // Only update the offscreen CDs. The center CD already shows the right art.
+  cdSlots[0].style.setProperty("--cd-bg", cds[wrapIndex(currentIndex - 1)].bg);
+  cdSlots[2].style.setProperty("--cd-bg", cds[wrapIndex(currentIndex + 1)].bg);
+  miniCd.style.setProperty("--cd-bg", cds[currentIndex].bg);
+}
+
+function applyAllArtwork() {
+  cdSlots.forEach((cd, slotIndex) => {
+    cd.style.setProperty("--cd-bg", cds[trackIndexForSlot(slotIndex)].bg);
+  });
+  miniCd.style.setProperty("--cd-bg", cds[currentIndex].bg);
 }
 
 function loadTrack(index, autoplay = false) {
@@ -107,7 +137,7 @@ function loadTrack(index, autoplay = false) {
 
   audio.src = cd.file;
   trackTitle.textContent = cd.title;
-  applyCdArtwork();
+  applyAllArtwork();
   offsetX = 0;
   setCdPositions(0, false);
 
@@ -121,8 +151,9 @@ function updatePlayingUI(playing) {
   wave.classList.toggle("is-playing", playing);
   miniWave.classList.toggle("is-playing", playing);
   statusText.textContent = playing ? "Now Playing" : "Paused";
+
   if (playing) {
-    syncSpinOrigin(cdRotation);
+    syncTrackSpinOrigin(currentIndex, trackRotations[currentIndex]);
     applyCdRotation();
   }
 }
@@ -136,13 +167,9 @@ async function playMusic() {
       audio.src = cds[currentIndex].file;
     }
 
-    console.log("Trying to play:", audio.src);
-
     await audio.play();
-
     updatePlayingUI(true);
   } catch (error) {
-    console.error("Audio failed to play:", error.name, error.message);
     statusText.textContent = "Tap Play";
     updatePlayingUI(false);
   }
@@ -153,35 +180,49 @@ function pauseMusic() {
   updatePlayingUI(false);
 }
 
+function rotateSlots(direction) {
+  // After a swipe, the CD that landed in the center becomes the new active slot.
+  // We rotate the array instead of jumping artwork/positions on the center CD.
+  if (direction === 1) {
+    // Swiped to next: center CD was cdSlots[2]
+    cdSlots = [cdSlots[1], cdSlots[2], cdSlots[0]];
+  } else {
+    // Swiped to previous: center CD was cdSlots[0]
+    cdSlots = [cdSlots[2], cdSlots[0], cdSlots[1]];
+  }
+}
+
 function finishSwipe(direction) {
   currentIndex = wrapIndex(currentIndex + direction);
   const cd = cds[currentIndex];
 
   audio.src = cd.file;
   trackTitle.textContent = cd.title;
-  applyCdArtwork();
+  miniCd.style.setProperty("--cd-bg", cd.bg);
 
-  cdElements.forEach((cdEl) => {
-    cdEl.style.transition = "none";
-  });
+  // Rotate which DOM element plays prev / active / next
+  rotateSlots(direction);
+
+  // Reset positions with no animation. The center CD never moves, so no flicker.
+  setCdTransition(false);
   setCdPositions(0, false);
 
-  void carouselTrack.offsetWidth;
+  // Wait one paint frame so the browser finishes the slide before we swap side art
+  requestAnimationFrame(() => {
+    applySideArtwork();
+    applyCdRotation();
 
-  cdElements.forEach((cdEl) => {
-    cdEl.style.transition = "";
+    animating = false;
+    getCenterCd().classList.remove("is-dragging");
+
+    if (isPlaying) playMusic();
   });
-
-  animating = false;
-  activeCd.classList.remove("is-dragging");
-
-  if (isPlaying) playMusic();
 }
 
 function commitSwipe(direction) {
   if (animating) return;
   animating = true;
-  activeCd.classList.add("is-dragging");
+  getCenterCd().classList.add("is-dragging");
 
   const targets =
     direction === 1
@@ -189,14 +230,17 @@ function commitSwipe(direction) {
       : [0, SLIDE_DISTANCE, SLIDE_DISTANCE * 2];
 
   setCdTransition(true);
-  cdElements.forEach((cd, index) => {
-    cd.style.transform = `translateX(${targets[index]}px)`;
+  cdSlots.forEach((cd, slotIndex) => {
+    cd.style.transform = `translateX(${targets[slotIndex]}px)`;
   });
 
-  activeCd.addEventListener(
+  // Listen on the CD that slides into the center (not always the same element)
+  const landingCd = direction === 1 ? cdSlots[2] : cdSlots[0];
+
+  landingCd.addEventListener(
     "transitionend",
     (event) => {
-      if (event.propertyName !== "transform") return;
+      if (event.target !== landingCd || event.propertyName !== "transform") return;
       finishSwipe(direction);
     },
     { once: true }
@@ -237,9 +281,9 @@ audio.addEventListener("ended", () => nextCd(true));
 carouselTrack.addEventListener("pointerdown", (event) => {
   if (animating) return;
   dragging = true;
-  cdRotation = getCdRotationAngle();
+  trackRotations[currentIndex] = getTrackRotationAngle(currentIndex);
   dragStartX = event.clientX;
-  activeCd.classList.add("is-dragging");
+  getCenterCd().classList.add("is-dragging");
   carouselTrack.setPointerCapture(event.pointerId);
   setCdTransition(false);
 });
@@ -264,8 +308,8 @@ function endDrag() {
     return;
   }
 
-  activeCd.classList.remove("is-dragging");
-  syncSpinOrigin(cdRotation);
+  getCenterCd().classList.remove("is-dragging");
+  syncTrackSpinOrigin(currentIndex, trackRotations[currentIndex]);
   setCdPositions(0, true);
   offsetX = 0;
 }
@@ -290,6 +334,5 @@ if (window.visualViewport) {
 }
 fitPhoneToScreen();
 
-syncSpinOrigin(0);
 requestAnimationFrame(cdRotationLoop);
 loadTrack(0, false);
