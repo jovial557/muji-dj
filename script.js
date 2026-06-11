@@ -127,22 +127,25 @@ function updatePlayingUI(playing) {
   }
 }
 
-function playMusic() {
-  if (!audio.src) {
-    audio.src = cds[currentIndex].file;
+async function playMusic() {
+  try {
+    audio.muted = false;
+    audio.volume = 1;
+
+    if (!audio.src) {
+      audio.src = cds[currentIndex].file;
+    }
+
+    console.log("Trying to play:", audio.src);
+
+    await audio.play();
+
+    updatePlayingUI(true);
+  } catch (error) {
+    console.error("Audio failed to play:", error.name, error.message);
+    statusText.textContent = "Tap Play";
+    updatePlayingUI(false);
   }
-
-  audio.load();
-
-  audio.play()
-    .then(() => {
-      updatePlayingUI(true);
-    })
-    .catch((error) => {
-      console.error("Audio failed to play:", error);
-      statusText.textContent = "Tap Play";
-      updatePlayingUI(false);
-    });
 }
 
 function pauseMusic() {
