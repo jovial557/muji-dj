@@ -40,7 +40,7 @@ button {
   transform-origin: top center;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--green);
+  background: var(--red);
   isolation: isolate;
 }
 
